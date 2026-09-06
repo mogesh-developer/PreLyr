@@ -1,3 +1,23 @@
+Metadata-Version: 2.4
+Name: prelyr
+Version: 0.1.0
+Summary: Adaptive NLP middleware for LLM applications
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.0
+Requires-Dist: tiktoken
+Requires-Dist: model2vec
+Requires-Dist: scikit-learn
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: python-dotenv
+Provides-Extra: gemini
+Requires-Dist: google-genai; extra == "gemini"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+
 <div align="center">
 
 # PreLyr
@@ -8,11 +28,10 @@
 
 <br/>
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Release-v0.1.0-10B981?style=for-the-badge)](#)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![NLP](https://img.shields.io/badge/NLP-Adaptive-8A2BE2?style=for-the-badge)](#)
 [![LLM](https://img.shields.io/badge/LLM-Agnostic-111827?style=for-the-badge)](#)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-V1%20Development-orange?style=for-the-badge)](#)
 
 <br/>
 
@@ -835,7 +854,7 @@ Before adding a feature, ask:
 
 # License
 
-This project is licensed under the [MIT License](LICENSE).
+License information will be added with the project release.
 
 ---
 

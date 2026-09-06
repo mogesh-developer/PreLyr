@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "prelyr"
+version = "0.1.0"
+description = "Adaptive NLP middleware for LLM applications"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+dependencies = [
+    "pydantic>=2.0",
+    "tiktoken",
+    "model2vec",
+    "scikit-learn",
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+]
+
+
+[project.optional-dependencies]
+gemini = [
+    "google-genai",
+]
+
+dev = [
+    "pytest",
+    "httpx",
+]
+
+
+[tool.setuptools.packages.find]
+include = ["app*"]

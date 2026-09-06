@@ -164,3 +164,28 @@ def test_engine_calculates_token_metrics():
         result.context.token_reduction_percentage >= 0
     )
 
+
+
+def test_engine_applies_clean_and_normalize():
+    engine = PreLyrEngine()
+
+    text = "  Explain     what Flask is.  "
+
+    result = engine.process(text)
+
+    assert ProcessingOperation.CLEAN in result.context.operations_applied
+    assert ProcessingOperation.NORMALIZE in result.context.operations_applied
+    assert result.context.optimized_text == "Explain what Flask is."
+
+def test_engine_keeps_clean_short_input_as_no_op():
+    engine = PreLyrEngine()
+
+    text = "Explain what Flask is."
+
+    result = engine.process(text)
+
+    assert result.context.optimized_text == text
+    assert result.decision.operations == [
+        ProcessingOperation.NO_OP
+    ]
+

@@ -7,6 +7,7 @@ from app.processors.deduplicator import Deduplicator
 from app.processors.redundancy import RedundancyProcessor
 from app.processors.relevant_context import RelevantContextProcessor
 from app.core.token_counter import TokenCounter
+from app.processors.clean_normalize import CleanNormalizeProcessor
 
 class PreLyrEngine:
 
@@ -19,6 +20,7 @@ class PreLyrEngine:
         self.redundancy_processor = RedundancyProcessor()
         self.relevant_context_processor = RelevantContextProcessor()
         self.token_counter = TokenCounter()
+        self.clean_normalize_processor = CleanNormalizeProcessor()
 
     def process(self, text: str) -> PreLyrResult:
         analysis = self.analyzer.analyze(text)
@@ -26,6 +28,14 @@ class PreLyrEngine:
         decision = self.decision_engine.decide(analysis)
 
         optimized_text = analysis.input_text
+
+        if (
+            ProcessingOperation.CLEAN in decision.operations
+            or ProcessingOperation.NORMALIZE in decision.operations
+        ):
+            optimized_text = self.clean_normalize_processor.process(
+            optimized_text
+        )
 
         if ProcessingOperation.DEDUPLICATE in decision.operations:
             optimized_text = self.deduplicator.process(

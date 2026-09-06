@@ -7,7 +7,6 @@ from app.models.schemas import (
 
 
 class DecisionEngine:
-
     def decide(self, analysis: AnalysisResult) -> ProcessingDecision:
         if analysis.is_empty:
             return ProcessingDecision(
@@ -18,9 +17,7 @@ class DecisionEngine:
         operations = []
 
         if analysis.duplicate_count > 0:
-            operations.append(
-                ProcessingOperation.DEDUPLICATE
-            )
+            operations.append(ProcessingOperation.DEDUPLICATE)
 
         if (
             analysis.input_length >= 200
@@ -30,31 +27,53 @@ class DecisionEngine:
                 ProcessingOperation.SELECT_RELEVANT_CONTEXT
             )
 
+        # CLEAN / NORMALIZE for inputs that contain
+        # obvious formatting noise.
+        if self._needs_cleaning(analysis.input_text):
+            operations.append(ProcessingOperation.CLEAN)
+            operations.append(ProcessingOperation.NORMALIZE)
+
         if analysis.input_length < 200 and analysis.sentence_count <= 2:
             if not operations:
-                operations.append(
-                    ProcessingOperation.NO_OP
-                )
+                operations.append(ProcessingOperation.NO_OP)
 
             return ProcessingDecision(
                 operations=operations,
                 reason=(
                     "Input is short and sufficiently concise."
-                    if len(operations) == 1
+                    if operations == [ProcessingOperation.NO_OP]
                     else "Input is short but contains content requiring processing."
                 ),
             )
 
-        operations.append(
-            ProcessingOperation.STRUCTURE
-        )
+        if ProcessingOperation.STRUCTURE not in operations:
+            operations.append(ProcessingOperation.STRUCTURE)
 
         return ProcessingDecision(
             operations=operations,
-            reason=(
-                "Input may benefit from deduplication, "
-                "relevant context selection, and structural processing."
-                if ProcessingOperation.SELECT_RELEVANT_CONTEXT in operations
-                else "Input is larger and may benefit from structural processing."
-            ),
+            reason="Input may benefit from selective context processing.",
         )
+
+    def _needs_cleaning(self, text: str) -> bool:
+        if not text:
+            return False
+
+        if text != text.strip():
+            return True
+
+        if "\r\n" in text or "\r" in text:
+            return True
+
+        if any(line.rstrip() != line for line in text.split("\n")):
+            return True
+
+        if "\t" in text:
+            return True
+
+        if "  " in text:
+            return True
+
+        if "\n\n\n" in text:
+            return True
+
+        return False

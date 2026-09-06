@@ -1,0 +1,14 @@
+pydantic>=2.0
+tiktoken
+model2vec
+scikit-learn
+fastapi
+uvicorn
+python-dotenv
+
+[dev]
+pytest
+httpx
+
+[gemini]
+google-genai
