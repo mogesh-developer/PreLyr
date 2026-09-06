@@ -1,0 +1,477 @@
+# Project Error Log & Prevention Guide
+
+This document captures the errors encountered during development, their root causes, how they were resolved, and best practices to prevent similar issues in the future.
+
+---
+
+## 1. Import Error: `ModuleNotFoundError: No module named 'app'`
+
+### **Error Message**
+```text
+_ ERROR collecting test/test_schemas.py _
+ImportError while importing test module 'D:\prelyr\test\test_schemas.py'.
+E   ModuleNotFoundError: No module named 'app'
+```
+
+### **Root Cause**
+When running `pytest` directly from terminal/PowerShell in Windows without setting `PYTHONPATH`, `pytest` does not automatically add the root directory (`.`) to Python's `sys.path`. This causes imports like `from app.models.schemas import ...` to fail during test collection.
+
+### **Fix**
+Created a [pytest.ini](file:///d:/prelyr/pytest.ini) file in the root directory (`D:\prelyr`):
+```ini
+[pytest]
+pythonpath = .
+```
+
+### **Future Prevention**
+* Always include a `pytest.ini` or `pyproject.toml` configuration in new Python projects defining `pythonpath = .`.
+* Alternatively, run tests using `python -m pytest`, which natively adds the current working directory to `sys.path`.
+
+---
+
+## 2. Schema Typo: `ValidationError: 1 validation error for AnalysisResult (input_lenght)`
+
+### **Error Message**
+```text
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for AnalysisResult
+E   input_lenght
+E     Field required [type=missing, input_value={'input_text': '...', 'input_length': 22, ...}]
+```
+
+### **Root Cause**
+In [app/models/schemas.py](file:///d:/prelyr/app/models/schemas.py), the field name was misspelled as `input_lenght` (`ht` at end), whereas unit tests passed `input_length` (`th` at end).
+
+### **Fix**
+Updated `AnalysisResult` schema in `app/models/schemas.py`:
+```python
+class AnalysisResult(BaseModel):
+    input_text: str
+    input_length: int  # Fixed spelling: lenght -> length
+    sentence_count: int
+    is_empty: bool = False
+```
+
+### **Future Prevention**
+* Use static analysis and linters like `mypy` or `ruff` to catch attribute mismatch errors prior to execution.
+* Ensure consistent variable naming conventions across schemas and tests.
+
+---
+
+## 3. Pydantic Deprecation Warning: `Extra keys: 'default_Factory'`
+
+### **Warning Message**
+```text
+PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. 
+Use `json_schema_extra` instead. (Extra keys: 'default_Factory')
+```
+
+### **Root Cause**
+In `app/models/schemas.py`, `Field(default_Factory=list)` used a capitalized `F`. In Pydantic V2, the keyword parameter is `default_factory`. Because of the case sensitivity, Pydantic treated `default_Factory` as an unknown extra keyword argument.
+
+### **Fix**
+Changed `default_Factory` to lowercase `default_factory`:
+```python
+class ProcessingDecision(BaseModel):
+    operations: list[ProcessingOperation] = Field(default_factory=list)
+    reason: str
+```
+
+### **Future Prevention**
+* Check Pydantic V2 syntax guidelines (all `Field` keywords like `default_factory`, `description`, `gt`, `lt` are snake_case).
+* Pay attention to pytest output warnings early in development.
+
+---
+
+## 4. Interface Mismatch: `TypeError: PreLyrEngine.__init__() got an unexpected keyword argument 'llm_provider'`
+
+### **Error Message**
+```text
+E   TypeError: PreLyrEngine.__init__() got an unexpected keyword argument 'llm_provider'
+test\test_gemini.py:16: TypeError
+```
+
+### **Root Cause**
+The test suite `test/test_gemini.py` initialized `PreLyrEngine(llm_provider=provider)`, but the `PreLyrEngine` class `__init__` in `app/core/engine.py` did not declare an `llm_provider` parameter.
+
+### **Fix**
+Updated `PreLyrEngine` in [app/core/engine.py](file:///d:/prelyr/app/core/engine.py):
+```python
+class PreLyrEngine:
+    def __init__(self, llm_provider: LLMProvider | None = None):
+        self.analyzer = InputAnalyzer()
+        self.decision_engine = DecisionEngine()
+        self.structure_processor = StructureProcessor()
+        self.llm_provider = llm_provider
+
+    def generate(self, text: str) -> str:
+        if self.llm_provider is None:
+            raise ValueError("No LLM provider configured.")
+        result = self.process(text)
+        ...
+        return self.llm_provider.generate(prompt)
+```
+
+### **Future Prevention**
+* Update core component signatures in tandem with new test cases.
+* Use type annotations and IDE autocompletion/linting to verify method signatures match caller requirements.
+
+---
+
+## 5. Schema Validation Error: `ValidationError: 2 validation errors for OptimizedContext (original_length, optimized_length)`
+
+### **Error Message**
+```text
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for OptimizedContext
+E       original_length
+E         Field required [type=missing, input_value={'original_text': '...', 'operations_applied': [...]}, input_type=dict]
+E       optimized_length
+E         Field required [type=missing, input_value={'original_text': '...', 'operations_applied': [...]}, input_type=dict]
+```
+
+### **Root Cause**
+In [app/models/schemas.py](file:///d:/prelyr/app/models/schemas.py), `OptimizedContext` was declared twice. The second declaration overrode the first and added `original_length: int` and `optimized_length: int` as required fields without default values or calculation logic, while callers (in `PreLyrEngine` and unit tests) only passed `original_text`, `optimized_text`, and `operations_applied`.
+
+### **Fix**
+Removed the duplicate `OptimizedContext` class and updated the single definition in `app/models/schemas.py` with `@model_validator(mode="before")` to automatically derive `original_length` and `optimized_length` from `original_text` and `optimized_text` if omitted:
+```python
+class OptimizedContext(BaseModel):
+    original_text: str
+    optimized_text: str
+    original_length: int = 0
+    optimized_length: int = 0
+    operations_applied: list[ProcessingOperation] = Field(
+        default_factory=list
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def calculate_lengths(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "original_length" not in data or data["original_length"] is None:
+                orig_text = data.get("original_text", "")
+                data["original_length"] = len(orig_text) if orig_text else 0
+            if "optimized_length" not in data or data["optimized_length"] is None:
+                opt_text = data.get("optimized_text", "")
+                data["optimized_length"] = len(opt_text) if opt_text else 0
+        return data
+```
+
+### **Future Prevention**
+* Avoid duplicate class definitions in schema modules.
+* Use default values or Pydantic `@model_validator` pre-hooks when schema fields can be derived automatically from existing primary fields.
+
+---
+
+## 6. API Error: `google.genai.errors.ClientError: 429 RESOURCE_EXHAUSTED`
+
+### **Error Message**
+```text
+google.genai.errors.ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details.'}}
+```
+
+### **Root Cause**
+When running live integration tests in [test/test_gemini.py](file:///d:/prelyr/test/test_gemini.py), requests to Gemini API failed because the free tier quota (`limit: 20` requests/day) was exhausted. Also, `test_prelyr_deduplicate_then_gemini` was missing `@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"))`.
+
+### **Fix**
+1. Added missing `@pytest.mark.skipif` to `test_prelyr_deduplicate_then_gemini` in `test/test_gemini.py`.
+2. Wrapped generation calls in a `_safe_generate` helper that catches `ClientError`/`APIError` when `429` / `RESOURCE_EXHAUSTED` is returned and skips the live API test via `pytest.skip(...)`.
+
+```python
+def _safe_generate(engine: PreLyrEngine, user_input: str) -> str:
+    try:
+        return engine.generate(user_input)
+    except (ClientError, APIError) as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            pytest.skip(f"Gemini API quota exceeded: {e}")
+        raise
+```
+
+### **Future Prevention**
+* Wrap external live API test calls in handlers that catch transient quota/rate limit errors (429) and call `pytest.skip()`.
+* Ensure all live API integration test functions have `@pytest.mark.skipif` checks.
+
+---
+
+## 7. File Path Error & Syntax Error: `ERROR: file or directory not found: tests/...` & `SyntaxError`
+
+### **Error Message**
+```text
+ERROR: file or directory not found: tests/test_semantic_deduplicator.py
+SyntaxError: expected ':' (def __init__(..., threshold: float = 0);)
+```
+
+### **Root Cause**
+1. **Directory Naming Mismatch**: The repository uses `test/` (singular) as its test directory name, but `pytest` was invoked using `tests/` (plural).
+2. **Implementation Defects in `SemanticDeduplicator`**:
+   - Class was named `SentenceDeduplicator` instead of `SemanticDeduplicator`.
+   - Misspelled package import `sentence_transformer` (missing `s`).
+   - Signature syntax error in `__init__` (semicolon inside parameter list).
+   - Method `process` defined at global module scope instead of indented under `SemanticDeduplicator`.
+   - Variable casing inconsistency (`Embeddings` vs `embeddings`).
+
+### **Fix**
+1. Updated [app/processors/semantic_deduplicator.py](file:///d:/prelyr/app/processors/semantic_deduplicator.py) to fix imports, class name `SemanticDeduplicator`, method indentation, parameter syntax, and string formatting.
+2. Invoked pytest targeting `test/` (singular): `pytest test/test_semantic_deduplicator.py`.
+
+```python
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
+
+class SemanticDeduplicator:
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2", threshold: float = 0.8):
+        self.model = SentenceTransformer(model_name)
+        self.threshold = threshold
+
+    def process(self, text: str) -> str:
+        sentences = [
+            sentence.strip()
+            for sentence in text.split(".")
+            if sentence.strip()
+        ]
+        if len(sentences) <= 1:
+            return text
+
+        embeddings = self.model.encode(sentences)
+        kept_sentences = [sentences[0]]
+        kept_embeddings = [embeddings[0]]
+
+        for index in range(1, len(sentences)):
+            current_embedding = embeddings[index]
+            similarities = cosine_similarity(
+                [current_embedding],
+                kept_embeddings,
+            )[0]
+
+            if max(similarities) >= self.threshold:
+                continue
+
+            kept_sentences.append(sentences[index])
+            kept_embeddings.append(current_embedding)
+
+        return " ".join(
+            s if s.endswith(".") else f"{s}."
+            for s in kept_sentences
+        )
+```
+
+### **Future Prevention**
+* Match repository folder structure conventions (`test/` singular vs `tests/` plural).
+* Run linters or basic python compilation checks before running test commands to catch scope, spelling, and syntax errors.
+
+---
+
+## 8. Import Error: `ImportError: cannot import name 'RedundancyProcessor' from 'app.processors.redundancy'`
+
+### **Error Message**
+```text
+E   ImportError: cannot import name 'RedundancyProcessor' from 'app.processors.redundancy' (D:\prelyr\app\processors\redundancy.py)
+```
+
+### **Root Cause**
+In [app/processors/redundancy.py](file:///d:/prelyr/app/processors/redundancy.py), the class name was misspelled as `RedundencyProcessor` (with an `e`), while [test/test_redundancy.py](file:///d:/prelyr/test/test_redundancy.py) attempted to import `RedundancyProcessor` (with an `a`). Additionally, attribute names in `__init__` (`exact_duplicator`, `sementic_deduplicator`) did not match the names used in `process()` (`exact_deduplicator`, `semantic_deduplicator`).
+
+### **Fix**
+Updated `app/processors/redundancy.py` to fix class name spelling and attribute names:
+```python
+from app.processors.deduplicator import Deduplicator
+from app.processors.semantic_deduplicator import SemanticDeduplicator
+
+
+class RedundancyProcessor:
+    def __init__(self, semantic_threshold: float = 0.85):
+        self.exact_deduplicator = Deduplicator()
+        self.semantic_deduplicator = SemanticDeduplicator(threshold=semantic_threshold)
+
+    def process(self, text: str) -> str:
+        text = self.exact_deduplicator.process(text)
+        return self.semantic_deduplicator.process(text)
+```
+
+### **Future Prevention**
+* Verify exact class and member names match between implementation and test modules.
+* Use IDE syntax checking / auto-completion to prevent typographical errors in attribute references.
+
+---
+
+## 9. Name Error: `NameError: name 'analysis' is not defined` during module collection
+
+### **Error Message**
+```text
+app\core\engine.py:72: in PreLyrEngine
+    original_text=analysis.input_text,
+                  ^^^^^^^^
+E   NameError: name 'analysis' is not defined
+```
+
+### **Root Cause**
+In [app/core/engine.py](file:///d:/prelyr/app/core/engine.py), an unindented block constructing `OptimizedContext(...)` was pasted directly inside the `PreLyrEngine` class body outside of any method definition. When Python loaded the module, it attempted to execute the class body immediately, failing because `analysis` only exists inside the `process()` method scope. There was also a typo (`optamized_text`) in `self.redundancy_processor.process(...)`.
+
+### **Fix**
+1. Removed the stray unindented `context = OptimizedContext(...)` block at the bottom of `PreLyrEngine`.
+2. Fixed `optamized_text` typo to `optimized_text` in [`app/core/engine.py`](file:///d:/prelyr/app/core/engine.py).
+
+### **Future Prevention**
+* Ensure code snippets inside methods are properly indented under method definitions.
+* Run pytest immediately after editing module files to catch stray lines or global scope errors before committing changes.
+
+---
+
+## 10. Assertion Error: `assert ProcessingOperation.DEDUPLICATE in result.decision.operations`
+
+### **Error Message**
+```text
+E       AssertionError: assert <ProcessingOperation.DEDUPLICATE: 'DEDUPLICATE'> in [<ProcessingOperation.STRUCTURE: 'STRUCTURE'>]
+```
+
+### **Root Cause**
+In [`app/core/analyzer.py`](file:///d:/prelyr/app/core/analyzer.py), `InputAnalyzer` previously only calculated exact sentence duplicates via exact string matching (`normalized in seen`). When processing inputs containing semantically redundant sentences (e.g. *"Flask is used as the backend."* vs *"The application backend is built using Flask."*), `duplicate_count` remained `0`, preventing [`DecisionEngine`](file:///d:/prelyr/app/core/decision.py) from flagging `ProcessingOperation.DEDUPLICATE`.
+
+### **Fix**
+Updated `InputAnalyzer` in [`app/core/analyzer.py`](file:///d:/prelyr/app/core/analyzer.py) to utilize `SemanticDeduplicator` during analysis. The duplicate count is now calculated based on the reduction in sentence count post-deduplication, allowing `DecisionEngine` to accurately detect semantic duplicates and add `DEDUPLICATE` to decision operations.
+
+```python
+from app.models.schemas import AnalysisResult
+from app.processors.semantic_deduplicator import SemanticDeduplicator
+
+
+class InputAnalyzer:
+
+    def __init__(self):
+        self.semantic_deduplicator = SemanticDeduplicator()
+
+    def analyze(self, text: str) -> AnalysisResult:
+        text = text.strip()
+        sentences = [s.strip() for s in text.split(".") if s.strip()]
+
+        if not sentences:
+            return AnalysisResult(
+                input_text=text, input_length=len(text), sentence_count=0, duplicate_count=0, is_empty=True
+            )
+
+        deduplicated_text = self.semantic_deduplicator.process(text)
+        deduplicated_sentences = [s.strip() for s in deduplicated_text.split(".") if s.strip()]
+
+        duplicate_count = max(0, len(sentences) - len(deduplicated_sentences))
+
+        return AnalysisResult(
+            input_text=text,
+            input_length=len(text),
+            sentence_count=len(sentences),
+            duplicate_count=duplicate_count,
+            is_empty=not bool(text),
+        )
+```
+
+### **Future Prevention**
+* Ensure analyzer components account for semantic duplicates in addition to exact string duplicates when evaluating input redundancy.
+
+---
+
+## 11. Unpacking & Type Mismatch Error: `ValueError: too many values to unpack (expected 3)`
+
+### **Error Message**
+```text
+E       ValueError: too many values to unpack (expected 3)
+test\test_hybrid_dedup.py:179: ValueError
+test\test_hybrid_dedup.py:334: ValueError
+...
+E       AttributeError: 'bool' object has no attribute 'is_safe_to_deduplicate'
+test\test_hybrid_dedup.py:32: AttributeError
+```
+
+### **Root Cause**
+1. **Dictionary Unpacking**: `DATASET` in [test/test_similarity_dataset.py](file:///d:/prelyr/test/test_similarity_dataset.py) consists of `dict` elements. In [test/test_hybrid_dedup.py](file:///d:/prelyr/test/test_hybrid_dedup.py) (both `test_hybrid_strategies` and `test_strategy_b_threshold_sweep`), dataset iteration used `for sentence_a, sentence_b, _ in DATASET:`, attempting to unpack dictionary keys (5 items) into 3 variables.
+2. **Type Mismatch in Results Dict**: The `results` dictionary stored a boolean `safety_ok` under `"safety"`. When `calculate_metrics` passed `item["safety"]` into strategy functions expecting a `SafetyValidator` instance, calling `.is_safe_to_deduplicate(...)` raised `AttributeError`.
+
+### **Fix**
+1. Updated dataset iteration loops in both `test_hybrid_strategies` and `test_strategy_b_threshold_sweep` in `test/test_hybrid_dedup.py` to pull values via dictionary key lookups (`item["a"]`, `item["b"]`, `item["duplicate"]`).
+2. Passed the `SafetyValidator` object `safety` under key `"safety"` in `results` so strategy functions receive the validator instance.
+
+```python
+for item in DATASET:
+    sentence_a = item["a"]
+    sentence_b = item["b"]
+    expected_duplicate = item["duplicate"]
+    ...
+    results.append({
+        "a": sentence_a,
+        "b": sentence_b,
+        "expected": expected_duplicate,
+        "semantic": float(semantic_score),
+        "lexical": float(lexical_score),
+        "safety": safety,
+    })
+```
+
+### **Future Prevention**
+* Verify iterable element types (`dict` vs `tuple`) before using positional tuple unpacking.
+* Ensure data dictionary values passed to downstream functions match expected parameter types and interfaces.
+
+---
+
+## 12. Double Period Formatting Bug: `AssertionError: assert 3 == 2`
+
+### **Error Message**
+```text
+E       AssertionError: assert 3 == 2
+E        +  where 3 = '- Flask is used as the backend.. - PostgreSQL is the database.'.count('.')
+test\test_engine.py:118: AssertionError
+```
+
+### **Root Cause**
+In both [app/processors/semantic_deduplicator.py](file:///d:/prelyr/app/processors/semantic_deduplicator.py) and [app/processors/deduplicator.py](file:///d:/prelyr/app/processors/deduplicator.py), deduplicated sentences were formatted as `. `.join(f"{sentence}." for sentence in kept_sentences). Appending `.` to each sentence and joining with `. ` resulted in double periods (`..`), causing `.count(".")` in `test_engine.py` to evaluate to `3` instead of `2`.
+
+### **Fix**
+Updated sentence joining in both `semantic_deduplicator.py` and `deduplicator.py` to join with `" "` while conditionally formatting periods:
+```python
+return " ".join(
+    sentence if sentence.endswith(".") else f"{sentence}."
+    for sentence in kept_sentences
+)
+```
+
+### **Future Prevention**
+* Do not combine period-appended strings with a period-containing delimiter like `". "`. Join with `" "` when sentences are individually formatted with terminal punctuation.
+
+---
+
+## 13. Pytest Collection Warning: `cannot collect test class 'TestPair'`
+
+### **Error Message**
+```text
+PytestCollectionWarning: cannot collect test class 'TestPair' because it has a __init__ constructor (from: test/test_similarity_comparison.py)
+```
+
+### **Root Cause**
+In [test/test_similarity_comparison.py](file:///d:/prelyr/test/test_similarity_comparison.py), a dataclass holding sentence benchmark pairs was named `TestPair`. Pytest attempts to collect any class starting with `Test` as a test suite class, throwing a collection warning due to its `@dataclass`-generated `__init__` constructor.
+
+### **Fix**
+Renamed `TestPair` to `SimilarityPair` across `test/test_similarity_comparison.py`:
+```python
+@dataclass
+class SimilarityPair:
+    first: str
+    second: str
+    duplicate: bool
+    category: str
+```
+
+### **Future Prevention**
+* Avoid naming helper/data classes in `test/` starting with `Test` (use `SimilarityPair`, `BenchmarkItem`, `SampleData` instead) to prevent unintentional test collection by pytest.
+
+---
+
+## Quick Reference Commands
+
+| Goal | Command |
+| :--- | :--- |
+| **Run Pytest** | `pytest` or `python -m pytest` |
+| **Run specific test file** | `pytest test/test_engine.py` |
+| **Freeze dependencies** | `pip freeze > requirements.txt` |
+
+
+
+
+
+
