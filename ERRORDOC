@@ -462,6 +462,29 @@ class SimilarityPair:
 
 ---
 
+## 14. Context Filtering Vocabulary Mismatch: `AssertionError: assert 'technical report' in ...`
+
+### **Error Message**
+```text
+FAILED test/test_relevant_context_benchmark.py::test_relevant_context_preserves_task_critical_information[extraction] - AssertionError: assert 'technical report' in ...
+FAILED test/test_relevant_context_adversarial.py::test_adversarial_relevance_preservation[debugging_semantic_cause] - AssertionError: assert 'connection configuration was changed...' in ...
+```
+
+### **Root Cause**
+In [app/processors/relevant_context.py](file:///d:/prelyr/app/processors/relevant_context.py), `RelevantContextProcessor._score` relied on a narrow list of hardcoded keywords per `TaskType`. Sentences containing critical domain information (such as technical causes `"connection configuration was changed during database migration"` or task deliverables `"technical report"`) were scored `0` because key domain verbs and nouns were absent from the keyword lists.
+
+### **Fix**
+Expanded the keyword dictionary in `RelevantContextProcessor`:
+* **DEBUGGING**: Added `"fails"`, `"fail"`, `"crash"`, `"crashes"`, `"crashed"`, `"startup"`, `"service"`, `"changed"`, `"migration"`, `"connection"`, `"config"`, `"configuration"`, `"cause"`, `"issue"`, `"database"`.
+* **EXTRACTION**: Added `"must"`, `"report"`, `"provide"`, `"submit"`, `"technical"`.
+* **COMPARISON**: Added `"lightweight"`, `"simple"`, `"ecosystem"`, `"performance"`, `"support"`, `"requires"`, `"less"`, `"more"`, `"setup"`, `"configuration"`, `"both"`.
+* **GENERATION**: Added `"required"`, `"authentication"`, `"because"`, `"private"`, `"security"`, `"data"`.
+
+### **Future Prevention**
+* Keep domain synonym and task-specific indicator keyword lists comprehensive when evaluating context relevance.
+
+---
+
 ## Quick Reference Commands
 
 | Goal | Command |
