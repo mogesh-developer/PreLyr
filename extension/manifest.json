@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "PreLyr",
+    "version": "0.1.0",
+    "description": "Adaptive local NLP middleware for AI applications.",
+    "permissions": [],
+    "host_permissions": [
+        "http://127.0.0.1:8765/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://chatgpt.com/*",
+                "https://chat.openai.com/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_title": "PreLyr"
+    }
+}

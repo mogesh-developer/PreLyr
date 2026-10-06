@@ -8,6 +8,7 @@ from app.processors.redundancy import RedundancyProcessor
 from app.processors.relevant_context import RelevantContextProcessor
 from app.core.token_counter import TokenCounter
 from app.processors.clean_normalize import CleanNormalizeProcessor
+from app.nlp.linguistic_optimizer import LinguisticOptimizer
 
 class PreLyrEngine:
 
@@ -21,6 +22,7 @@ class PreLyrEngine:
         self.relevant_context_processor = RelevantContextProcessor()
         self.token_counter = TokenCounter()
         self.clean_normalize_processor = CleanNormalizeProcessor()
+        self.linguistic_optimizer = LinguisticOptimizer()
 
     def process(self, text: str) -> PreLyrResult:
         analysis = self.analyzer.analyze(text)
@@ -52,6 +54,20 @@ class PreLyrEngine:
             optimized_text = self.structure_processor.process(
             optimized_text
         )
+
+        if (
+            ProcessingOperation.LINGUISTIC_OPTIMIZATION
+            in decision.operations
+        ):
+            linguistic_input = optimized_text
+
+            linguistic_result = (
+                self.linguistic_optimizer.optimize(
+                    linguistic_input
+                )
+            )
+
+            optimized_text = linguistic_result.optimized
 
         if ProcessingOperation.DEDUPLICATE in decision.operations:
             optimized_text = self.redundancy_processor.process(optimized_text)
