@@ -1,212 +1,130 @@
 <div align="center">
 
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:111827,45:312e81,100:06b6d4&height=190&section=header&text=PreLyr&fontSize=72&fontColor=ffffff&fontAlignY=38&desc=The%20intelligent%20layer%20between%20your%20input%20and%20your%20LLM&descAlignY=65&descSize=18" width="100%" alt="PreLyr banner" />
+
 # PreLyr
 
-### The intelligent layer between your input and your LLM.
+### Understand the input. Decide the work. Send only what matters.
 
-**Adaptive NLP middleware that decides what your input actually needs before it reaches an LLM.**
+<p>
+  <strong>Adaptive NLP middleware for reducing unnecessary LLM work without throwing away useful information.</strong>
+</p>
 
-<br/>
+<p>
+  <a href="#-quick-start">Quick Start</a> ·
+  <a href="#-how-it-works">How It Works</a> ·
+  <a href="#-use-cases">Use Cases</a> ·
+  <a href="#-roadmap">Roadmap</a> ·
+  <a href="#-contributing">Contributing</a>
+</p>
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Release-v0.1.0-10B981?style=for-the-badge)](#)
-[![NLP](https://img.shields.io/badge/NLP-Adaptive-8A2BE2?style=for-the-badge)](#)
-[![LLM](https://img.shields.io/badge/LLM-Agnostic-111827?style=for-the-badge)](#)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-
-<br/>
+<p>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+" /></a>
+  <img src="https://img.shields.io/badge/Release-v0.1.0-10B981?style=flat-square" alt="Release v0.1.0" />
+  <img src="https://img.shields.io/badge/NLP-Adaptive-8A2BE2?style=flat-square" alt="Adaptive NLP" />
+  <img src="https://img.shields.io/badge/LLM-Agnostic-111827?style=flat-square" alt="LLM agnostic" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2563EB?style=flat-square" alt="MIT License" /></a>
+</p>
 
 > **Minimize unnecessary LLM work — not information.**
-
-<br/>
-
-[How It Works](#-how-it-works) • [Architecture](#-architecture) • [Examples](#-real-world-examples) • [Roadmap](#-roadmap)
 
 </div>
 
 ---
 
-# What is PreLyr?
+## ✦ The idea in one screen
 
-Modern AI applications often send **everything directly to an LLM**.
-
-Large documents. Terminal logs. Repeated text. Noisy input. Poorly structured requests.
-
-But not every input needs the same amount of processing.
-
-**PreLyr sits between your application and the LLM to decide what processing is actually useful before the model sees the request.**
-
-```text
-USER INPUT
-    ↓
-  PreLyr
-    ↓
-Analyze input + understand task
-    ↓
-Decide whether processing is useful
-    ↓
- ┌───────────────┬─────────────────────┐
- │               │                     │
- ▼               ▼                     ▼
-NO_OP        Selective NLP         Local / future
-             processing            deterministic work
- │               │                     │
- └───────────────┴──────────┬──────────┘
-                            ↓
-                   Optimized context
-                            ↓
-                           LLM
-                            ↓
-                        FINAL RESULT
-```
-
-### In simple words
-
-PreLyr asks:
-
-> **"What does this input actually need?"**
-
-Instead of blindly preprocessing every request, it can pass clean input through, selectively transform noisy input, or eventually route deterministic work away from the LLM entirely.
-
----
-
-# Why PreLyr?
-
-Without an optimization layer:
-
-```text
-User → Large / Noisy Input → LLM
-```
-
-With PreLyr:
-
-```text
-User → PreLyr → Relevant / Optimized Context → LLM
-```
-
-The objective is **not** to remove as many tokens as possible.
-
-The objective is:
-
-> **Eliminate unnecessary LLM work while preserving the information required to solve the task correctly.**
-
----
-
-# The Core Principle
-
-## Minimize unnecessary LLM work — not information.
-
-A shorter prompt is not automatically a better prompt.
-
-If information is removed and the result becomes less accurate, the optimization failed.
-
-PreLyr therefore treats:
-
-```text
-Information correctness
-        ↓
-Task relevance
-        ↓
-Unnecessary-work reduction
-        ↓
-Token / context optimization
-```
-
-as the preferred order of priorities.
-
-> **Minimum unnecessary context ≠ minimum context.**
-
----
-
-# How It Works
-
-PreLyr is adaptive by design.
+Most AI applications send every request directly to an LLM. PreLyr adds a decision layer first:
 
 ```mermaid
 flowchart LR
-    A["User Input"] --> B["Input + Task Analysis"]
-    B --> C{"Is Processing Useful?"}
-    C -->|"No"| D["NO_OP"]
-    C -->|"Yes"| E["Select Processing"]
-    E --> F["Clean / Normalize"]
-    E --> G["Structure"]
-    E --> H["Extract"]
-    E --> I["Filter"]
-    E --> J["Deduplicate"]
-    E --> K["Select Relevant Context"]
-    F --> L["Optimized Context"]
-    G --> L
-    H --> L
-    I --> L
-    J --> L
-    K --> L
-    D --> L
-    L --> M["LLM"]
-    M --> N["Final Result"]
+    A["Your application"] --> B["PreLyr"]
+    B --> C{"What does this input need?"}
+    C -->|"Already useful"| D["NO_OP"]
+    C -->|"Needs preparation"| E["Selective NLP"]
+    C -->|"Deterministic task"| F["Local execution"]
+    D --> G["Optimized context"]
+    E --> G
+    F --> H["Local result"]
+    G --> I["LLM"]
+    I --> J["Final result"]
+    H --> J
 ```
 
-The key decision is simple:
+PreLyr is not trying to make every prompt shorter. It is trying to make every downstream operation more intentional.
+
+## ✦ Why PreLyr?
+
+| Without a decision layer | With PreLyr |
+|---|---|
+| Every request goes straight to the model | Each request is analyzed first |
+| Large logs and repeated content consume context | Genuine noise and redundancy can be reduced |
+| The same preprocessing is applied everywhere | Processing is selected for the task |
+| Deterministic work may be sent to an LLM | Local execution can handle suitable work |
+| Token reduction becomes the main metric | Correctness and unnecessary work come first |
+
+<blockquote>
+<strong>Minimum unnecessary context ≠ minimum context.</strong><br />
+A smaller prompt is only better when the information required to solve the task is still present.
+</blockquote>
+
+## ✦ How It Works
+
+```mermaid
+flowchart TD
+    A["Input + task"] --> B["Analyze content"]
+    B --> C["Understand intent"]
+    C --> D{"Is processing useful?"}
+    D -->|"No"| E["NO_OP · preserve input"]
+    D -->|"Yes"| F["Select only useful operations"]
+    F --> F1["Clean / normalize"]
+    F --> F2["Structure / extract"]
+    F --> F3["Filter / deduplicate"]
+    F --> F4["Select context / compress"]
+    E --> G["Prepared context"]
+    F1 --> G
+    F2 --> G
+    F3 --> G
+    F4 --> G
+    G --> H["LLM or local execution"]
+    H --> I["Result"]
+```
+
+### Processing decisions
+
+<details>
+<summary><strong>Open the decision catalog</strong></summary>
+
+| Decision | What it does |
+|---|---|
+| `NO_OP` | Passes useful input through unchanged |
+| `CLEAN` | Removes genuine noise |
+| `NORMALIZE` | Makes inconsistent input easier to process |
+| `STRUCTURE` | Adds useful structure to unstructured content |
+| `EXTRACT` | Pulls out task-relevant information |
+| `FILTER` | Removes content irrelevant to the task |
+| `DEDUPLICATE` | Reduces genuine repetition |
+| `SELECT_CONTEXT` | Keeps the context most relevant to the task |
+| `COMPRESS` | Reduces unnecessary representation |
+| `CHUNK` | Splits large content intelligently |
+| `LOCAL_EXECUTION` | Handles suitable deterministic work locally |
+| `LLM_REQUIRED` | Routes reasoning or generation to an LLM |
+
+Multiple decisions can be combined when the input requires it.
+
+</details>
+
+## ✦ The PreLyr contract
+
+PreLyr follows three rules before optimizing anything:
 
 ```text
-                INPUT
-                  │
-                  ▼
-          Analyze + Understand
-                  │
-                  ▼
-       ┌────────────────────────┐
-       │ Is processing useful?  │
-       └───────────┬────────────┘
-                   │
-         ┌─────────┴─────────┐
-         ▼                   ▼
-       NO_OP              PROCESS
-         │                   │
-         │          Select only what
-         │          is actually useful
-         │                   │
-         └─────────┬─────────┘
-                   ▼
-             Optimized Context
-                   │
-                   ▼
-                  LLM
+1. Preserve meaning
+2. Respect the task
+3. Remove only unnecessary work
 ```
 
----
-
-# Adaptive Processing
-
-PreLyr does **not** assume every input needs preprocessing.
-
-Possible processing decisions include:
-
-| Decision | Purpose |
-|---|---|
-| `NO_OP` | Pass input through unchanged |
-| `CLEAN` | Remove genuine noise |
-| `NORMALIZE` | Normalize inconsistent input |
-| `STRUCTURE` | Give unstructured input a useful structure |
-| `EXTRACT` | Extract task-relevant information |
-| `FILTER` | Remove irrelevant content |
-| `DEDUPLICATE` | Reduce genuine repetition |
-| `SELECT_CONTEXT` | Select task-relevant context |
-| `COMPRESS` | Reduce unnecessary representation |
-| `CHUNK` | Split large content intelligently |
-| `LOCAL_EXECUTION` | Perform deterministic work locally |
-| `LLM_REQUIRED` | Route reasoning or generation to an LLM |
-
-Multiple operations may be combined when necessary.
-
----
-
-# Information Preservation
-
-PreLyr is **lossless-by-default**.
-
-Important requirements, technologies, dependencies, constraints, assumptions, and future plans should not be removed simply to reduce token count.
-
-Example:
+For example, this context may all matter:
 
 ```text
 Current backend: Flask
@@ -214,473 +132,185 @@ Database: PostgreSQL
 Possible future migration: FastAPI
 ```
 
-All three can be meaningful context.
+PreLyr should not remove `Flask` merely because `FastAPI` appears later. It is **lossless-by-default** and conservative about information removal.
 
-PreLyr should not remove `Flask` just because `FastAPI` appears later.
+## ✦ Use Cases
 
-The goal is not:
+<table>
+<tr>
+<td width="50%">
 
-```text
-"smallest possible context"
-```
+### 🧹 Noisy terminal logs
 
-The goal is:
-
-```text
-"smallest unnecessary context while preserving what matters"
-```
-
----
-
-# Task-Aware Processing
-
-The same input can require different processing depending on what the user is trying to do.
+Find the useful failure inside thousands of lines of warnings, repeated output, and stack traces while preserving diagnostic context.
 
 ```text
-Same Document
-      │
-      ├── "Summarize it"
-      ├── "Find deadlines"
-      ├── "Extract requirements"
-      └── "Compare sections"
+Large log → analyze → select error context → LLM
 ```
 
-So PreLyr considers:
+</td>
+<td width="50%">
+
+### 📄 Large documents
+
+For a task like **“find all deadlines”**, extract and structure deadline-related content instead of treating the entire document as one block.
 
 ```text
-INPUT + TASK
-      ↓
-PROCESSING DECISION
+Document + task → extract → structured context
 ```
 
-rather than looking at the input alone.
+</td>
+</tr>
+<tr>
+<td>
 
----
+### 🔁 Repetitive input
 
-# Real-World Examples
-
-## 01 — Clean Question
+Detect genuine duplication, reduce the representation, and preserve the meaning required by the task.
 
 ```text
-User:
-"What is Flask?"
+Repeated content → deduplicate → preserve meaning
 ```
 
-This is already concise and meaningful.
+</td>
+<td>
+
+### ⚙️ Deterministic work
+
+Route suitable operations to local execution instead of spending an LLM call on work that does not require reasoning or generation.
 
 ```text
-Input → PreLyr → NO_OP → LLM
+Request → classify → local / NLP / LLM
 ```
 
-No unnecessary preprocessing.
+</td>
+</tr>
+</table>
 
----
-
-## 02 — Large Terminal Log
-
-A developer sends thousands of lines of terminal output containing warnings, repeated logs, stack traces, and one actual failure.
-
-```text
-Large Terminal Log
-        ↓
-      PreLyr
-        ↓
-Analyze + Select
-        ↓
-Relevant Error Context
-        ↓
-       LLM
-```
-
-The useful stack-trace context should remain available while genuine noise and repetition can be reduced.
-
----
-
-## 03 — Large Document
-
-```text
-User
-  ↓
-Large document
-  ↓
-Task: "Find all deadlines"
-  ↓
-PreLyr
-  ↓
-Extract relevant deadline information
-  ↓
-Structured context
-  ↓
-LLM
-```
-
-The document is processed according to the task rather than treated as one undifferentiated block.
-
----
-
-## 04 — Repetitive Input
-
-```text
-Repeated information
-        ↓
-      PreLyr
-        ↓
-Detect genuine redundancy
-        ↓
-Preserve meaning
-        ↓
-Reduced representation
-        ↓
-       LLM
-```
-
----
-
-## 05 — Deterministic Work
-
-Some tasks can eventually be completed without an LLM.
-
-```mermaid
-flowchart TD
-    A["User Request"] --> B["PreLyr"]
-    B --> C{"What kind of work?"}
-    C -->|"Deterministic"| D["Local Execution"]
-    C -->|"NLP Processing"| E["NLP Pipeline"]
-    C -->|"Reasoning / Generation"| F["Optimized LLM Request"]
-    D --> G["Result"]
-    E --> H["Structured Context"]
-    H --> F
-    F --> G
-```
-
-This is a major part of PreLyr's long-term direction: **don't use an LLM for work that does not actually require one.**
-
----
-
-# Architecture
-
-## V1 Architecture
+## ✦ Architecture
 
 ```mermaid
 flowchart LR
-    A["Application"] --> B["PreLyr"]
-    B --> C["Input Analyzer"]
-    C --> D["Task / Intent Detection"]
-    D --> E["Processing Decision"]
-    E --> F["NLP Processing Layer"]
-    F --> G["Context Optimizer"]
-    G --> H["LLM Adapter"]
-    H --> I["LLM Provider"]
+    A["Application"] --> B["PreLyr API"]
+    B --> C["Input analyzer"]
+    C --> D["Task / intent detection"]
+    D --> E["Processing decision"]
+    E --> F["NLP processors"]
+    F --> G["Context optimizer"]
+    G --> H["LLM adapter"]
+    H --> I["Cloud / local model"]
     I --> J["Response"]
     J --> A
 ```
 
-### Architecture principles
-
-PreLyr is designed to be:
-
-- **Modular**
-- **Extensible**
-- **Model-agnostic**
-- **LLM-provider-agnostic**
-- **Testable**
-- **Observable**
-- **Conservative about information loss**
-
-The middleware should not be tightly coupled to one LLM provider.
-
----
-
-# PreLyr V1
-
-### Current focus
+### Built around a small boundary
 
 ```text
-┌──────────────────────────────────────────────┐
-│                  PreLyr V1                   │
-├──────────────────────────────────────────────┤
-│                                              │
-│  ✓ Input analysis                            │
-│  ✓ Task / intent understanding               │
-│  ✓ Cleaning / normalization                  │
-│  ✓ Redundancy detection                      │
-│  ✓ Deduplication                             │
-│  ✓ Structure extraction                      │
-│  ✓ Relevant-context selection                │
-│  ✓ Selective compression                     │
-│  ✓ Intelligent NO_OP                         │
-│  ✓ LLM-ready optimized context               │
-│                                              │
-└──────────────────────────────────────────────┘
-```
-
-V1 focuses on **LLM input optimization**.
-
-It is intentionally not trying to become an autonomous-agent framework, generic RAG platform, chatbot, or LLM replacement.
-
----
-
-# What PreLyr Is NOT
-
-```text
-❌ A new LLM
-❌ A chatbot
-❌ An LLM replacement
-❌ A generic RAG platform
-❌ An autonomous-agent framework
-❌ A document-management system
-❌ An NLP library built from scratch
-```
-
-PreLyr is:
-
-```text
-Input Understanding
+Input understanding
         ↓
-Selective NLP Processing
+Selective processing
         ↓
-Context Optimization
+Context optimization
         ↓
-Task Routing
+Task routing
         ↓
-LLM Interaction
+LLM interaction
 ```
 
----
+**Design goals:** modular · extensible · model-agnostic · provider-agnostic · testable · observable · conservative about information loss.
 
-# Why Middleware?
+## ✦ Quick Start
 
-PreLyr is intended to sit between an application and an LLM.
+> Installation and usage will expand as the V1 API stabilizes.
 
-```text
-┌──────────────────────┐
-│     Application      │
-│                      │
-│ Chat UI              │
-│ Mobile App           │
-│ Developer Tool       │
-│ API                  │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│        PreLyr        │
-│                      │
-│ Analyze              │
-│ Decide               │
-│ Process              │
-│ Optimize             │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│         LLM          │
-│                      │
-│ Cloud / Local / Any  │
-│ compatible model     │
-└──────────────────────┘
+### 1. Install
+
+```bash
+git clone https://github.com/mogesh-developer/PreLyr.git
+cd PreLyr
+python -m venv .venv
 ```
 
-This allows PreLyr to become an infrastructure component inside different AI applications without becoming the application itself.
+<details>
+<summary><strong>Activate the virtual environment</strong></summary>
 
----
+**Windows PowerShell**
 
-# Integration Concept
-
-```text
-              Your Application
-                     │
-                     ▼
-                   PreLyr
-                     │
-           ┌─────────┼─────────┐
-           ▼         ▼         ▼
-        Cloud LLM  Local LLM  Other Model
+```powershell
+.venv\Scripts\activate
 ```
 
-The end user can continue using the same AI interface while PreLyr operates as the optimization layer underneath it.
+**Linux / macOS**
 
----
-
-# Design Principles
-
-### 1. Adaptive, not automatic
-
-Don't preprocess just because preprocessing exists.
-
-### 2. Lossless by default
-
-Preserve useful information unless there is a strong reason to transform it.
-
-### 3. Task-aware
-
-Input optimization should consider what the user is trying to accomplish.
-
-### 4. Model-agnostic
-
-PreLyr should remain independent of any single provider or model family.
-
-### 5. Library-first
-
-Use mature NLP and document-processing libraries where they solve the problem well instead of reinventing them.
-
-### 6. Modular
-
-Processing components should remain replaceable and independently testable.
-
-### 7. Measure real value
-
-The primary metric is not:
-
-```text
-"How many tokens did we remove?"
+```bash
+source .venv/bin/activate
 ```
 
-The better question is:
+</details>
 
-```text
-"How much unnecessary LLM work did we eliminate
-while preserving the information required to solve
-the task correctly?"
+### 2. Install PreLyr
+
+```bash
+pip install -e .
 ```
 
----
+### 3. Integration concept
 
-# Performance Philosophy
+```python
+from prelyr import PreLyr
 
-A smaller request is not automatically a better request.
+prelyr = PreLyr()
 
-```text
-                 INPUT
-                   │
-       ┌───────────┴───────────┐
-       ▼                       ▼
-Too much information     Too little information
-       │                       │
-       ▼                       ▼
-Unnecessary work         Lost context
-       │                       │
-       └───────────┬───────────┘
-                   ▼
-             PRELYR GOAL
-                   │
-                   ▼
-      Less unnecessary work
-               +
-         preserved meaning
+prepared = prelyr.prepare(
+    input=user_input,
+    task=user_task,
+)
+
+response = llm.generate(prepared.context)
 ```
 
-PreLyr aims for the useful middle ground.
+> The public API is expected to evolve while V1 is being built.
 
----
+## ✦ V1 scope
 
-# Long-Term Vision
+<div align="center">
 
-The long-term goal is larger than prompt shortening.
+| ✅ In scope | ⏭️ Later direction |
+|---|---|
+| Input analysis | Intelligent task routing |
+| Task / intent understanding | Deterministic local execution |
+| Cleaning and normalization | NLP / LLM work splitting |
+| Redundancy detection | Broader local workflows |
+| Structure and extraction | — |
+| Relevant-context selection | — |
+| Selective compression | — |
+| Intelligent `NO_OP` | — |
 
-```text
-                USER REQUEST
-                      │
-                      ▼
-                   PRELYR
-                      │
-                      ▼
-             Understand the request
-                      │
-                      ▼
-             Decide what work is needed
-                      │
-          ┌───────────┼────────────┐
-          ▼           ▼            ▼
-     Local Work    NLP Work     LLM Work
-          │           │            │
-          └───────────┼────────────┘
-                      ▼
-                  FINAL RESULT
-```
+</div>
 
-The bigger question becomes:
+PreLyr is intentionally **not** a chatbot, a new LLM, a generic RAG platform, an autonomous-agent framework, a document-management system, or an NLP library built from scratch.
 
-> **Why should an LLM do work that doesn't actually require an LLM?**
-
----
-
-# V1 → V2
+## ✦ Roadmap
 
 ```mermaid
-flowchart LR
-    A["V1"] --> B["Input Optimization"]
-    B --> C["V2"]
-    C --> D["Intelligent Task Routing"]
-    D --> E["Deterministic Local Execution"]
-    D --> F["NLP Processing"]
-    D --> G["LLM Reasoning"]
-    E --> H["Final Result"]
-    F --> H
-    G --> H
+timeline
+    title PreLyr evolution
+    V1 : Input optimization
+       : Adaptive NLP
+       : Context selection
+       : Intelligent NO_OP
+    V2 : Intelligent task routing
+       : Deterministic execution
+       : Local processing
+       : NLP / LLM split
+    Long term : Adaptive AI middleware
+              : For LLM applications
 ```
 
-### V1 — Optimize the input
-
-Focus on cleaning, structuring, extracting, filtering, deduplicating, selecting context, and making an intelligent `NO_OP` decision.
-
-### V2 — Optimize the work
-
-The next step is to determine what can be done locally, what should be handled by deterministic NLP, and what truly requires LLM reasoning or generation.
-
----
-
-# Who is PreLyr for?
-
-PreLyr is aimed at developers building:
-
-- AI applications
-- LLM-powered APIs
-- AI assistants and copilots
-- Developer tools
-- Document-processing systems
-- Local LLM applications
-- Cloud LLM applications
-
----
-
-# Technology Philosophy
-
-PreLyr is **not** intended to be an educational "NLP from scratch" implementation.
-
-Where appropriate, it should rely on mature libraries for:
-
-- NLP
-- text processing
-- document parsing
-- tokenization
-- similarity
-- structured extraction
-- model interaction
-
-Each dependency should answer:
-
-```text
-What problem does it solve?
-        ↓
-Why does PreLyr need it?
-        ↓
-What are the alternatives?
-        ↓
-What are the trade-offs?
-        ↓
-Does it belong in V1 or later?
-```
-
-This keeps the project focused and maintainable.
-
----
-
-# Project Structure
+## ✦ Project structure
 
 ```text
 PreLyr/
-│
 ├── prelyr/
 │   ├── analyzer/
 │   ├── processors/
@@ -688,169 +318,50 @@ PreLyr/
 │   ├── routing/
 │   ├── models/
 │   └── core/
-│
 ├── tests/
 ├── examples/
 ├── docs/
-│
 ├── README.md
 ├── pyproject.toml
 └── LICENSE
 ```
 
-The implementation structure can evolve as V1 matures.
+## ✦ Current status
 
----
+> 🚧 **PreLyr V1 — Active Development**
 
-# Getting Started
+The project is being built incrementally around one question:
 
-> Installation and usage instructions will expand as the V1 API stabilizes.
+> **Why should an LLM do work that does not actually require an LLM?**
 
-### Clone
-
-```bash
-git clone https://github.com/mogesh-developer/PreLyr.git
-cd PreLyr
-```
-
-### Create a virtual environment
-
-```bash
-python -m venv venv
-```
-
-### Activate — Windows
-
-```powershell
-venv\Scripts\activate
-```
-
-### Activate — Linux / macOS
-
-```bash
-source venv/bin/activate
-```
-
-### Install
-
-```bash
-pip install -e .
-```
-
----
-
-# Example Integration Concept
-
-A future PreLyr integration may look conceptually like:
-
-```python
-from prelyr import PreLyr
-
-prelyr = PreLyr()
-
-result = prelyr.prepare(
-    input=user_input,
-    task=user_task,
-)
-
-response = llm.generate(result.context)
-```
-
-The exact API will evolve with the V1 implementation.
-
----
-
-# Roadmap
-
-```text
-                 PRELYR ROADMAP
-
-        ┌─────────────────────────┐
-        │          V1             │
-        │                         │
-        │ Input Optimization      │
-        │ Adaptive NLP             │
-        │ Context Selection       │
-        │ Intelligent NO_OP       │
-        └────────────┬────────────┘
-                     │
-                     ▼
-        ┌─────────────────────────┐
-        │          V2             │
-        │                         │
-        │ Intelligent Task Routing│
-        │ Deterministic Execution │
-        │ Local Processing        │
-        │ NLP / LLM split         │
-        └────────────┬────────────┘
-                     │
-                     ▼
-        ┌─────────────────────────┐
-        │      Long-Term          │
-        │                         │
-        │ Adaptive AI Middleware  │
-        │ for LLM Applications    │
-        └─────────────────────────┘
-```
-
----
-
-# Current Status
-
-🚧 **PreLyr V1 — Active Development**
-
-The current release focuses on establishing the core adaptive input-optimization middleware.
-
-The project is intentionally being built incrementally around a clear boundary:
-
-```text
-Input Understanding
-        ↓
-Selective Processing
-        ↓
-Context Optimization
-        ↓
-Task Routing
-        ↓
-LLM Interaction
-```
-
----
-
-# Contributing
-
-Contributions should remain aligned with the project's core purpose.
+## ✦ Contributing
 
 Before adding a feature, ask:
 
 - Does it reduce unnecessary LLM work?
-- Does it improve input quality?
+- Does it improve input quality or task relevance?
 - Is preprocessing actually necessary?
-- Can the task be completed deterministically?
+- Could the task be completed deterministically?
 - Could the transformation remove important information?
 - Does it belong in the current version?
-- Should an existing library be used instead?
+- Should a mature library solve it instead?
 
----
-
-# License
+## ✦ License
 
 This project is licensed under the [MIT License](LICENSE).
 
----
-
 <div align="center">
 
-## PreLyr
+---
+
+### PreLyr
 
 **Prepare the input. Reduce the unnecessary work. Let the model focus on what matters.**
 
-<br/>
-
 `Input → Understand → Decide → Optimize → LLM`
 
-<br/>
+<br />
 
-**Built for the next generation of LLM applications.**
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:06b6d4,50:312e81,100:111827&height=100&section=footer" width="100%" alt="PreLyr footer" />
 
 </div>
