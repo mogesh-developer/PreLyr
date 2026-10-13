@@ -219,6 +219,50 @@ LLM interaction
 
 **Design goals:** modular · extensible · model-agnostic · provider-agnostic · testable · observable · conservative about information loss.
 
+## ✦ Verified ChatGPT web integration (browser extension)
+
+`extension/manifest.json` defines a Manifest V3 extension with a content script on `https://chatgpt.com/*` and `https://chat.openai.com/*`, plus host access to `http://127.0.0.1:8765/*`.
+
+```mermaid
+flowchart LR
+    A["ChatGPT composer (textarea / contenteditable)"]
+    B["extension/content.js"]
+    C["chrome.runtime.sendMessage\n{ type: PRELYR_PROCESS, text }"]
+    D["extension/background.js (service worker)"]
+    E["HTTP POST http://127.0.0.1:8765/process\nContent-Type: application/json\n{ text }"]
+    F["runtime/server.py FastAPI /process"]
+    G["PreLyrEngine adaptive processing\n(or preserve input via NO_OP/lossless path)"]
+    H["JSON response\n{ optimized_text, metadata }"]
+    I["content.js updates composer"]
+    J["ChatGPT web UI send flow"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> D
+    D --> B
+    B --> I
+    I --> J
+```
+
+1. **Capture**  
+   `extension/content.js` finds the visible ChatGPT composer (`textarea` or `[contenteditable='true']`), reads text, and intercepts either Enter (without Shift and not composing) or the send-button click.
+2. **Extension messaging (internal)**  
+   The content script prevents the original submission and sends `chrome.runtime.sendMessage({ type: "PRELYR_PROCESS", text })` to the extension background service worker. This is internal extension messaging.
+3. **Backend processing (HTTP)**  
+   `extension/background.js` handles `PRELYR_PROCESS` and calls `POST http://127.0.0.1:8765/process` with JSON `{ "text": text }` and `Content-Type: application/json`.  
+   `runtime/server.py` validates non-empty `text`, runs shared `PreLyrEngine`, and returns `optimized_text` with token counts, token reduction percentage, operations, reason, and processing time (`GET /health` also exists, but this extension flow uses `/process`).
+4. **Return path**  
+   The background returns parsed runtime JSON to the content script as `{ success: true, result }` (or `{ success: false, error }` on failure). The content script reads `response.result.optimized_text`, writes it back into the composer, and dispatches input/change events as applicable.
+5. **ChatGPT final prompt handling**  
+   After insertion, the content script programmatically clicks ChatGPT’s send button to continue the normal web UI submission flow. The click is guarded so the extension does not process its own programmatic submit twice.
+
+This integration keeps PreLyr’s adaptive decision model in front of ChatGPT prompt submission: processing is applied only when useful, input can be preserved via existing NO_OP/lossless behavior, and unnecessary LLM work is reduced without discarding required context.
+
 ## ✦ Quick Start
 
 > Installation and usage will expand as the V1 API stabilizes.
